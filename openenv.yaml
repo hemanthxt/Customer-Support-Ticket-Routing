@@ -1,0 +1,109 @@
+name: TicketRoutingEnv
+version: "1.0.0"
+description: >
+  A real-world OpenEnv simulation where an AI agent processes customer support
+  tickets by classifying issues, assigning priority, routing to the correct
+  team, drafting replies, and resolving or escalating cases.
+
+author: "Team TicketRouting"
+license: MIT
+
+# ──────────────────────────────────────────────
+# Environment metadata
+# ──────────────────────────────────────────────
+environment:
+  class: TicketRoutingEnv
+  module: environment
+  max_steps: 10
+
+# ──────────────────────────────────────────────
+# Observation space
+# ──────────────────────────────────────────────
+observation_space:
+  type: dict
+  fields:
+    ticket_id:        {type: string}
+    customer_message: {type: string}
+    customer_tier:    {type: string, enum: [standard, premium, enterprise]}
+    previous_tickets: {type: integer}
+    status:           {type: string, enum: [open, in_progress, escalated, resolved]}
+    assigned_team:    {type: string, nullable: true}
+    priority:         {type: string, nullable: true}
+    category:         {type: string, nullable: true}
+    reply_draft:      {type: string}
+    step_count:       {type: integer}
+    escalated:        {type: boolean}
+
+# ──────────────────────────────────────────────
+# Action space
+# ──────────────────────────────────────────────
+action_space:
+  type: dict
+  fields:
+    action_type:
+      type: string
+      enum:
+        - classify_ticket   # value: category
+        - set_priority      # value: priority level
+        - assign_team       # value: team name
+        - draft_reply       # value: reply text
+        - escalate          # value: escalation reason
+        - resolve_ticket    # value: "done"
+    value:
+      type: string
+
+# ──────────────────────────────────────────────
+# Reward specification
+# ──────────────────────────────────────────────
+reward:
+  type: dense
+  range: [-0.30, 1.00]
+  components:
+    classify_correct:  +0.30
+    classify_wrong:    -0.10
+    priority_correct:  +0.20
+    priority_wrong:    -0.05
+    team_correct:      +0.20
+    team_wrong:        -0.10
+    reply_useful:      +0.20  # proportional to keyword coverage
+    escalate_correct:  +0.10
+    escalate_wrong:    -0.05
+    resolve_correct:   +0.10
+    resolve_too_early: -0.10
+    repeated_action:   -0.05
+
+# ──────────────────────────────────────────────
+# Tasks
+# ──────────────────────────────────────────────
+tasks:
+  - id: TASK_01_EASY
+    difficulty: easy
+    description: "Duplicate billing charge — route to billing team and resolve"
+
+  - id: TASK_02_MEDIUM
+    difficulty: medium
+    description: "Urgent account lockout before a client meeting"
+
+  - id: TASK_03_HARD
+    difficulty: hard
+    description: "Multi-issue: missing order + duplicate charge + no prior response"
+
+# ──────────────────────────────────────────────
+# Grading
+# ──────────────────────────────────────────────
+grading:
+  type: rule_based
+  score_range: [0.0, 1.0]
+  components:
+    category:  0.30
+    priority:  0.20
+    team:      0.20
+    reply:     0.20
+    handling:  0.10
+
+# ──────────────────────────────────────────────
+# Entry points
+# ──────────────────────────────────────────────
+entrypoints:
+  inference: inference.py
+  environment: environment.py
